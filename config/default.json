@@ -1,0 +1,95 @@
+{
+    "dbServer": {
+        "database": "send_it",
+        "host": "mongodb://localhost:27017/oa_send_it"
+    },
+    "webServer": {
+        "rootUrl": "http://localhost:3002",
+        "port": 3002
+    },
+    "queueServer": {
+        "disabled": true
+    },
+    "system": {
+        "name": "Open Age",
+        "emailId": "no_reply@openage.in"
+    },
+    "auth": {
+        "provider": "directory"
+    },
+    "email": {
+        "provider": "mailgun"
+    },
+    "push": {
+        "provider": "oneSignal"
+    },
+    "sms": {
+        "provider": "routesms"
+    },
+    "logger": {
+        "console": {
+            "level": "debug",
+            "handleExceptions": true,
+            "json": false,
+            "colorize": true
+        }
+    },
+    "providers": {
+        "directory": {
+            "url": "http://localhost:3001/api"
+        },
+        "smtp": {
+            "host": "placeholder",
+            "port": 25,
+            "auth": {
+                "user": "placeholder",
+                "password": "placeholder"
+            }
+        },
+        "firebase": {
+            "apiKey": "placeholder",
+            "authDomain": "placeholder",
+            "databaseURL": "placeholder",
+            "projectId": "placeholder",
+            "storageBucket": "placeholder",
+            "messagingSenderId": "placeholder"
+        },
+        "mailgun": {
+            "domain": "placeholder",
+            "api_key": "placeholder"
+        },
+        "oneSignal": {
+            "url": "placeholder",
+            "devicesUrl": "placeholder",
+            "app_id": "placeholder",
+            "Authorization": "placeholder"
+        },
+        "quickblox": {
+            "url": "http://api.quickblox.com",
+            "username": "placeholder",
+            "password": "placeholder",
+            "appID": "placeholder",
+            "authKey": "placeholder",
+            "authSecret": "placeholder"
+        },
+        "twilio": {
+            "id": "placeholder",
+            "token": "placeholder",
+            "from": "placeholder"
+        },
+        "slack": {
+            "channel": "placeholder",
+            "webhookUrl": "placeholder",
+            "icon_emoji": "placeholder",
+            "username": "placeholder"
+        },
+        "routesms": {
+            "userName": "placeholder",
+            "url": "placeholder",
+            "password": "placeholder",
+            "type": "placeholder",
+            "dlr": "placeholder",
+            "source": "placeholder"
+        }
+    }
+}

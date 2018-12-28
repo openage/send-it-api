@@ -1,0 +1,13 @@
+{
+    "vsicons.presets.angular": false,
+    "cSpell.words": [
+        "Templating",
+        "mailgun",
+        "openage",
+        "quickblox",
+        "routesms",
+        "smtp",
+        "twilio",
+        "webhook"
+    ]
+}
