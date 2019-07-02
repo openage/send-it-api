@@ -1,99 +1,71 @@
-'use strict';
-var nodemailer = require('nodemailer');
-var mailgunTransport = require('nodemailer-mailgun-transport');
-var emailConfig = require('config').get('mailgun');
-var logger = require('../helpers/logger')('mailgun');
-var async = require('async');
-var validator = require('validator');
-var uuid = require('uuid');
+'use strict'
+var nodemailer = require('nodemailer')
+var mailgunTransport = require('nodemailer-mailgun-transport')
+var emailConfig = require('config').get('email')
+var logger = require('@open-age/logger')('mailgun')
 
-var queue = async.queue(function(params, callback) {
-    var log = logger.start('queueTask');
-    log.debug('sending', params.id);
-
-    params.transporter.sendMail(params.payload, function(err) {
-        if (err) {
-            log.error('error while sending email', {
-                id: params.id,
-                payload: params.payload,
-                error: err
-            });
-        } else {
-            log.info('sent email', params.id);
-        }
-        callback();
-    });
-}, 1);
-
-var send = function(to, email, transporter, config, cb) {
-    var log = logger.start('send');
-    if (!to) {
-        log.info('no email configured', email);
-        return cb(null, email);
+const userToEmail = user => {
+    if (!user.profile) {
+        return user.email
     }
 
-    if (!validator.isEmail(to)) {
-        log.error('email not sent. Reason - invalid email: ' + to, email);
-        return cb(null, email);
+    let name = `${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim()
+
+    if (!name) {
+        return user.email
+    }
+    return `${name}<${user.email}>`
+}
+
+
+const send = async (message, to, config) => {
+    var log = logger.start('send')
+    if (!to) {
+        log.error(`missing email`)
+        return Promise.resolve(false)
     }
 
     if (emailConfig.disabled) {
-        log.info('email disabled', email);
-        if (cb) {
-            cb(null, email);
-        }
-        return;
+        log.info('email disabled')
+        return Promise.resolve(false)
     }
+
     var payload = {
-        from: email.from || config.from,
-        to: to,
-        subject: email.subject,
-        html: email.body
-    };
-
-    if (email.attachments) {
-        payload.attachments = email.attachments;
+        from: userToEmail(message.from),
+        to: userToEmail(to),
+        subject: message.subject,
+        html: message.body
     }
 
-    var id = uuid.v4();
-
-    log.debug('queuing', {
-        id: id,
-        payload: payload
-    });
-
-    queue.push({
-        transporter: transporter,
-        payload: payload,
-        id: id
-    });
-    if (cb) {
-        cb(null, email);
+    if (message.attachments.length) {
+        payload.attachments = message.attachments
     }
-};
 
-var getTransport = function(config) {
-    return nodemailer.createTransport(mailgunTransport({
+    const transporter = nodemailer.createTransport(mailgunTransport({
         service: 'Mailgun',
         auth: config
-    }));
-};
+    }))
 
-var configuredTrasport = getTransport(emailConfig);
+    return new Promise((resolve) => {
+        transporter.sendMail(payload, function (err) {
+            if (err) {
+                log.error('error while sending email', {
+                    payload: payload,
+                    error: err
+                })
+                resolve(false)
+            } else {
+                log.info('sent email')
+                resolve(true)
+            }
+        })
+    })
+}
 
-
-var mailer = module.exports;
-
-mailer.config = function(mailgunConfig) {
-    var transport = getTransport(mailgunConfig || emailConfig);
-
+exports.config = function (config) {
     return {
-        send: function(to, email, cb) {
-            send(to, email, transport, mailgunConfig || emailConfig, cb);
+        send: async (message, to) => {
+            return send(message, to, config)
         }
-    };
-};
-
-mailer.send = function(to, email, cb) {
-    send(to, email, configuredTrasport, emailConfig, cb);
-};
+    }
+}

@@ -1,0 +1,173 @@
+const db = require('../models')
+const templates = require('./templates')
+const messages = require('./messages')
+
+const dataSources = require('./data-sources')
+
+const set = async (model, entity, context) => {
+    if (model.name) {
+        entity.name = model.name
+    }
+    if (model.status) {
+        entity.status = model.status
+    }
+
+    if (model.processor) {
+        entity.processor = model.processor
+    }
+
+    if (model.config) {
+        entity.config = {}
+        if (model.config.to) {
+            entity.config.to = model.config.to
+        }
+
+        if (model.config.modes) {
+            entity.config.modes = model.config.modes
+        }
+
+        if (model.config.entity) {
+            entity.config.entity = model.config.entity
+        }
+    }
+
+    if (model.dataSource) {
+        entity.dataSource = model.dataSource
+    }
+
+    if (model.schedule) {
+        entity.schedule.hour = model.schedule.hour
+        entity.schedule.minute = model.schedule.minute
+    }
+
+    if (model.periodicity) {
+        entity.periodicity.type = model.periodicity.type
+        entity.periodicity.period = model.periodicity.period
+        entity.periodicity.start = model.periodicity.start
+        entity.periodicity.end = model.periodicity.end
+    }
+
+    if (model.template && model.template.code) {
+        entity.template = await templates.getByCode(model.template.code, context)
+    }
+}
+
+exports.create = async (model, context) => {
+    let where = {
+        code: model.code.toLowerCase(),
+        organization: context.organization,
+        tenant: context.tenant
+    }
+
+    let entity = await db.job.findOne(where).populate('template tenant organization')
+
+    if (!entity) {
+        entity = new db.job({
+            code: model.code.toLowerCase(),
+            organization: context.organization,
+            tenant: context.tenant
+        })
+    }
+
+    await set(model, entity, context)
+    return entity.save()
+}
+
+exports.update = async (id, model, context) => {
+    let entity = await db.job.findById(id).populate('template tenant organization')
+    await set(model, entity, context)
+    return await entity.save()
+}
+
+exports.run = async (job, context) => {
+    context.logger.info(`running job '${job.code}'`)
+
+    let items = await dataSources.fetch({ dataSource: job.dataSource }, context)
+
+    let length = items.length
+    let index = 0
+
+    let entityConfig = job.config.entity || job.template.config.entity
+
+    let toConfig = job.config.to || job.template.config.to
+
+
+    for (let item of items) {
+        let conversation
+
+        if (entityConfig) {
+            conversation = {
+                entity: {
+                    id: item[entityConfig.field],
+                    type: entityConfig.type
+                }
+            }
+        }
+        await messages.create({
+            template: job.template,
+            modes: job.config.modes,
+            conversation: conversation,
+            to: toConfig,
+            data: item
+        }, context)
+
+        context.setProgress(index++, length)
+    }
+    return job
+}
+
+exports.get = async (query, context) => {
+    let where = {
+        organization: context.organization,
+        tenant: context.tenant
+    }
+
+    if (typeof query === 'string') {
+        if (query.isObjectId()) {
+            return db.job.findById(query).populate('template tenant organization')
+        } else {
+            where.code = query.toLowerCase()
+            return db.job.findOne(where).populate('template tenant organization')
+        }
+    }
+
+    if (query.id) {
+        return db.job.findById(query.id).populate('owner')
+    }
+
+    if (query.code) {
+        where.code = query.code.toLowerCase()
+        return db.job.findOne(where).populate('template tenant organization')
+    }
+
+    return null
+}
+
+exports.search = async (query, page, context) => {
+    const where = {
+        organization: context.organization,
+        tenant: context.tenant
+    }
+
+    if (!query.status) {
+        where.status = 'active'
+    } else if (query.status !== 'any') {
+        where.status = req.query.status
+    }
+
+    if (query.periodicity_type) {
+        where['periodicity.type'] = query.periodicity_type
+    }
+
+    if (!page || !page.limit) {
+        return {
+            items: await db.job.find(where).sort({ timestamp: 1 })
+        }
+    }
+
+    return {
+        items: await db.job.find(where).sort({ timestamp: 1 }).limit(page.limit).skip(page.skip),
+        count: await db.job.count(where)
+    }
+}
+

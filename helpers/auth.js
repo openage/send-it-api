@@ -1,142 +1,129 @@
-'use strict';
-var jwt = require('jsonwebtoken');
-var db = require('../models');
-var auth = require('config').get('auth');
-var responseHelper = require('../helpers/response');
-var async = require('async');
+'use strict'
 
-var extractToken = function (token, callback) {
-  jwt.verify(token, auth.secret, {
-    ignoreExpiration: true
-  }, function (err, claims) {
-    if (err) {
-      return callback(err);
+const contextBuilder = require('./context-builder')
+const userService = require('../services/users')
+
+const fetch = (req, modelName, paramName) => {
+    var value = req.query[`${modelName}-${paramName}`] || req.headers[`x-${modelName}-${paramName}`]
+    if (!value && req.body[modelName]) {
+        value = req.body[modelName][paramName]
     }
-    async.parallel({
-      user: function (cb) {
-        db.user.findOne({
-          _id: claims.userId
-        }).exec(function (err, user) {
-          if (err) {
-            return cb(err);
-          }
-          cb(null, user);
-        });
-      },
-      client: function (cb) {
-        db.client.findOne({
-          _id: claims.clientId
-        }).populate('owner').exec(function (err, client) {
-          if (err) {
-            return cb(err);
-          }
-          cb(null, client);
-        });
-      }
-    }, function (err, result) {
-      if (err) {
-        callback(err);
-      }
-      if (result.client.owner.id === result.user.id) {
-        result.user.isOwner = true;
-      }
-
-      callback(null, result);
-    });
-  });
-};
-
-exports.requiresUser = function (req, res, next) {
-  var token = req.body.token || req.query.token || req.headers['x-access-token'];
-
-  if (!token) {
-    return res.accessDenied('token is required.');
-  }
-  extractToken(token, function (err, result) {
-    if (err) {
-      return res.accessDenied('invalid token', 403, err);
+    if (!value) {
+        return null
     }
 
-    req.client = result.client;
-    req.user = result.user;
-    req.filters.add('client', result.client.id.toObjectId());
+    var model = {}
+    model[paramName] = value
+    return model
+}
 
-    next();
-  });
-};
+const extractFromRoleKey = async (roleKey, logger) => {
+    let log = logger.start('extractRoleKey')
 
-exports.requiresOwner = function (req, res, next) {
-  var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    let user = await userService.getByKey(roleKey, log)
 
-  if (!token) {
-    return res.accessDenied('token is required.');
-  }
-  extractToken(token, function (err, result) {
-    if (err) {
-      return res.accessDenied('invalid token', 403, err);
-    }
-    if (!result.user.isOwner) {
-      return res.accessDenied('you are not owner of the client', 403, err);
-    }
-    req.client = result.client;
-    req.user = result.user;
-    req.filters.add('client', result.client.id.toObjectId());
-
-    next();
-  });
-};
-
-exports.requiresClient = function (req, res, next) {
-  var token = req.body.token || req.query.token || req.headers['x-access-token'];
-
-  if (token) {
-    return extractToken(token, function (err, result) {
-      if (err) {
-        return res.accessDenied('invalid token', 403, err);
-      }
-
-      req.client = result.client;
-      req.user = result.user;
-      req.filters.add('client', result.client.id.toObjectId());
-
-      next();
-    });
-  }
-
-  var clientCode = req.body.clientCode || req.query.clientCode || req.headers['client-code'];
-
-  if (!clientCode) {
-    return res.accessDenied('client-code is required.');
-  }
-
-  db.client.findOne({
-    code: clientCode
-  }).populate('owner').exec(function (err, client) {
-    if (err) {
-      res.log.error(err);
-      return res.accessDenied('error occured while getting client');
+    if (!user) {
+        throw new Error('invalid role key')
     }
 
-    if (!client) {
-      return res.accessDenied('client does not exist.');
+    if (user.id) { // some users does not exist in db
+        user.lastSeen = new Date()
+        await user.save()
     }
 
-    if (client.status !== 'active') {
-      return res.accessDenied('client is not active.');
+    log.end()
+    return user
+}
+
+const requireRoleKey = async (req, res, next, permission) => {
+    let log = res.logger.start(`helpers/auth:shouldHavePermission(${permission})`)
+
+    var role = fetch(req, 'role', 'key')
+
+    if (!role) {
+        return res.accessDenied('ROLE_KEY_MISSING')
     }
 
-    req.client = client;
-    req.filters.add('client', client.id.toObjectId());
-    next();
-  });
-};
+    extractFromRoleKey(role.key, log).then(user => {
+        contextBuilder.create({
+            user: user,
+            organization: user.organization,
+            tenant: user.tenant
+        }, res.logger).then(context => {
+            if (!context.hasPermission(permission)) {
+                res.accessDenied()
+            } else {
+                req.context = context
+                next()
+            }
+        })
+    }).catch(err => {
+        log.error(err)
+        res.failure('ROLE_KEY_IS_INVALID')
+    })
+}
 
-exports.getToken = function (user) {
-  var claims = {
-    clientId: user.client.id,
-    userId: user.id
-  };
-  return jwt.sign(claims, auth.secret, {
-    expiresIn: auth.tokenPeriod || 1440
-  });
-};
+exports.requiresCaptcha = (req, res, next) => {
+    let log = logger.start('requiresCaptcha')
+
+    let token = req.body.roleKey || req.query.roleKey || req.headers['x-google-captcha'] // todo for google captcha
+
+    var tenant = fetch(req, 'tenant', 'code')
+    var organization = fetch(req, 'organization', 'code')
+
+    if (!tenant) {
+        return res.accessDenied('TENANT_CODE_IS_INVALID')
+    }
+    contextBuilder.create({
+        tenant: tenant,
+        organization: organization
+    }, res.logger).then(context => {
+        req.context = context
+        next()
+    }).catch(err => res.accessDenied(err))
+}
+
+exports.requiresAny = (req, res, next) => {
+    let log = res.logger.start(`helpers/auth:requiresAny`)
+    var role = fetch(req, 'role', 'key')
+
+    if (role) {
+        return requireRoleKey(req, res, next)
+    }
+
+    var tenant = fetch(req, 'tenant', 'code')
+    if (!tenant) {
+        return res.accessDenied('TENANT_CODE_MISSING')
+    }
+
+    contextBuilder.create({
+        tenant: tenant
+    }, res.logger).then(context => {
+        if (!context.tenant) {
+            res.failure('TENANT_CODE_IS_INVALID')
+        } else {
+            req.context = context
+            next()
+        }
+    })
+}
+
+exports.requiresRole = (req, res, next) => {
+    requireRoleKey(req, res, next)
+}
+
+exports.requiresOrganizationAdmin = (req, res, next) => {
+    requireRoleKey(req, res, next, ['organization.admin', 'organization.superadmin'])
+}
+
+exports.requiresTenantAdmin = (req, res, next) => {
+    requireRoleKey(req, res, next, 'tenant.admin')
+}
+
+exports.requiresAdmin = (req, res, next) => {
+    requireRoleKey(req, res, next, ['system.admin', 'tenant.admin', 'organization.admin', 'organization.superadmin'])
+}
+
+exports.requiresSystemAdmin = (req, res, next) => {
+    requireRoleKey(req, res, next, 'system.admin')
+}

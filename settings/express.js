@@ -1,34 +1,40 @@
-'use strict';
-var express = require('express');
-var path = require('path');
-var cors = require('cors');
-var logger = require("../helpers/logger")('config.express');
-var bodyParser = require('body-parser');
+'use strict'
+var express = require('express')
+var path = require('path')
+const cors = require('cors')
+const timeout = require('connect-timeout') // express v4
 
-module.exports.configure = function(app) {
-    var log = logger.start('config');
-    app.use(function(err, req, res, next) {
+var bodyParser = require('body-parser')
+var appRoot = require('app-root-path')
+
+module.exports.configure = function (app, logger) {
+    logger.start('settings/express:configure')
+
+    app.use(timeout(120000))
+    app.use((req, res, next) => {
+        if (!req.timedout) next()
+    })
+
+    app.use(cors())
+    app.use((err, req, res, next) => {
         if (err) {
-            (res.log || log).error(err.stack);
-            if (req.xhr) {
-                res.send(500, { error: 'Something blew up!' });
-            } else {
-                next(err);
-            }
-
-            return;
+            res.writeHead(500)
+            res.end()
+            return
         }
-        next();
-    });
-    app.use(cors());
-    app.use(require('morgan')({ "stream": logger.stream }));
-    app.use(bodyParser.json());
+        res.header('Access-Control-Allow-Origin', '*')
+        res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, PUT, DELETE')
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+        next()
+    })
+
+    app.use(bodyParser.json())
+
     app.use(bodyParser.urlencoded({
         extended: true
-    }));
-    var root = path.normalize(__dirname + './../');
-    app.set('views', path.join(root, 'views'));
-    app.set('view engine', 'jade');
-    app.use(express.static(path.join(root, 'public')));
-    //app.use(bodyParser({ limit: '50mb', keepExtensions: true, uploadDir: __dirname + '/public/uploads' }));
-};
+    }))
+
+    app.use(express.static(path.join(appRoot.path, 'public')))
+    app.set('view engine', 'ejs')
+    app.use(bodyParser({ limit: '50mb', keepExtensions: true }))
+}

@@ -1,35 +1,77 @@
-'use strict';
-var mongoose = require('mongoose');
-mongoose.model('user', mongoose.Schema({
-    pic: {
-        url: String,
-        data: String,
+'use strict'
+var mongoose = require('mongoose')
+module.exports = {
+    role: {
+        id: String,
+        key: String,
+        code: String,
+        permissions: [{
+            type: String
+        }],
+        user: {
+            id: String
+        },
+        organization: {
+            id: String,
+            code: String,
+            name: String
+        }
     },
-
-    name: String,
     email: String,
     phone: String,
-    trackingId: String,
-
-    token: String,
-    pin: String,
+    code: String,
+    token: String, // TODO: obsolete
+    otp: String, // TODO: obsolete
+    profile: {
+        firstName: String,
+        lastName: String,
+        gender: String,
+        dob: Date,
+        pic: {
+            url: String,
+            thumbnail: String
+        }
+    },
+    address: {
+        line1: String,
+        line2: String,
+        district: String,
+        city: String,
+        state: String,
+        pinCode: String,
+        country: String
+    },
+    status: String,
     chat: {
         id: Number,
-        password: String
+        key: String,
+        statusMessage: String
     },
     devices: [{
         id: String,
         name: String,
+        status: {
+            type: String,
+            default: 'active',
+            enum: ['active', 'inactive']
+        }
     }],
     notifications: {
-        enabled: Boolean,
-        subscriptions: [{
-            key: String,
-            value: Boolean,
+        enabled: { type: Boolean, default: true },
+        snooze: Date,
+        refusals: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'template'
         }]
     },
 
-    client: { type: mongoose.Schema.Types.ObjectId, ref: 'client' },
-    status: String,
-    timeStamp: { type: Date, default: Date.now }
-}));
+    lastSeen: Date,
+    organization: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'organization'
+    },
+    tenant: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'tenant'
+    }
+}

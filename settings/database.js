@@ -1,20 +1,33 @@
-'use strict';
-var fs = require('fs');
-var join = require('path').join;
-var mongoose = require('mongoose');
-var uriUtil = require('mongodb-uri');
-var dbConfig = require('config').get('dbServer');
-var logger = require("../helpers/logger")('settings.database');
+'use strict'
+var mongoose = require('mongoose')
+var dbConfig = require('config').get('dbServer')
 
-module.exports.configure = function() {
-    logger.debug('host - ' + dbConfig.host);
-    var connect = function() {
-        mongoose.connect(uriUtil.formatMongoose(dbConfig.host));
-    };
-    connect();
+module.exports.configure = function (logger) {
+    const log = logger.start('settings/database:configure')
+    mongoose.Promise = global.Promise
 
-    var db = mongoose.connection;
-    db.on('error', console.log);
-    db.on('disconnected', connect);
-    require('../models');
-};
+    let connect = function () {
+        log.info('connecting to', dbConfig)
+        mongoose.connect(dbConfig.host)
+    }
+
+    connect()
+
+    let db = mongoose.connection
+
+    db.on('connected', function () {
+        log.info('DB Connected')
+    })
+
+    db.on('error', function (err) {
+        log.error('Mongoose default connection error: ' + err)
+    })
+
+    db.on('disconnected', function () {
+        log.info('Again going to connect DB')
+        connect()
+    })
+
+    global.db = require('../models')
+    return global.db
+}

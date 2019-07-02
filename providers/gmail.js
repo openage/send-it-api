@@ -1,22 +1,24 @@
-'use strict';
-var nodemailer = require('nodemailer');
-var smtpTransport = require('nodemailer-smtp-transport');
-var emailConfig = require('config').get('email');
+'use strict'
+var nodemailer = require('nodemailer')
+var smtpTransport = require('nodemailer-smtp-transport')
+var emailConfig = require('config').get('email')
 
-var send = function(to, email, transporter, config, cb) {
+var send = async (to, message, transporter, config) => {
     var payload = {
-        from: email.from || config.from,
+        from: message.from || config.from,
         to: to,
-        subject: email.subject,
-        html: email.body
-    };
-    transporter.sendMail(payload, function(err) {
-        cb(err, email);
-    });
-};
+        subject: message.subject,
+        html: message.body
+    }
 
-var getTransport = function(config) {
+    return new Promise((resolve) => {
+        transporter.sendMail(payload, function (err) {
+            return resolve(!err)
+        })
+    })
+}
 
+var getTransport = function (config) {
     return nodemailer.createTransport(smtpTransport({
         host: 'smtp.gmail.com',
         port: 465,
@@ -24,24 +26,23 @@ var getTransport = function(config) {
             user: config.auth.user,
             pass: config.auth.password
         }
-    }));
-};
+    }))
+}
 
-var configuredTrasport = getTransport(emailConfig);
+var configuredTrasport = getTransport(emailConfig)
 
+var mailer = module.exports
 
-var mailer = module.exports;
-
-mailer.config = function(config) {
-    var transport = getTransport(config || emailConfig);
+mailer.config = function (config) {
+    var transport = getTransport(config || emailConfig)
 
     return {
-        send: function(to, email, cb) {
-            send(to, email, transport, config || emailConfig, cb);
+        send: async (message, to) => {
+            return send(to, message, transport, config || emailConfig)
         }
-    };
-};
+    }
+}
 
-mailer.send = function(to, email, cb) {
-    send(to, email, configuredTrasport, emailConfig, cb);
-};
+mailer.send = async (message, to) => {
+    return send(to, message, configuredTrasport, emailConfig)
+}

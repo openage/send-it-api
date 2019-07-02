@@ -1,10 +1,11 @@
 {
     "version": "0.2.0",
-    "configurations": [{
-            "name": "debug-local",
+    "configurations": [
+        {
+            "name": "dev-api",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/app.js",
+            "program": "${workspaceRoot}/bin/api.js",
             "stopOnEntry": false,
             "args": [],
             "cwd": "${workspaceRoot}",
@@ -16,14 +17,16 @@
             "env": {
                 "NODE_ENV": "dev"
             },
-            "console": "integratedTerminal",
+            "console": "internalConsole",
             "sourceMaps": false,
+            "outputCapture": "std",
             "outFiles": []
-        }, {
-            "name": "debug-test",
+        },
+        {
+            "name": "dev-job",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/app.js",
+            "program": "${workspaceRoot}/bin/cron.js",
             "stopOnEntry": false,
             "args": [],
             "cwd": "${workspaceRoot}",
@@ -33,16 +36,18 @@
                 "--nolazy"
             ],
             "env": {
-                "NODE_ENV": "test"
+                "NODE_ENV": "dev"
             },
             "console": "internalConsole",
             "sourceMaps": false,
+            "outputCapture": "std",
             "outFiles": []
-        }, {
-            "name": "debug-prod",
+        },
+        {
+            "name": "uat-api",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/app.js",
+            "program": "${workspaceRoot}/bin/api.js",
             "stopOnEntry": false,
             "args": [],
             "cwd": "${workspaceRoot}",
@@ -52,31 +57,11 @@
                 "--nolazy"
             ],
             "env": {
-                "NODE_ENV": "prod"
+                "NODE_ENV": "uat"
             },
-            "console": "integratedTerminal",
+            "console": "internalConsole",
             "sourceMaps": false,
-            "outFiles": []
-        },
-        {
-            "name": "Attach",
-            "type": "node",
-            "request": "attach",
-            "port": 5858,
-            "address": "localhost",
-            "restart": false,
-            "sourceMaps": false,
-            "outFiles": [],
-            "localRoot": "${workspaceRoot}",
-            "remoteRoot": null
-        },
-        {
-            "name": "Attach to Process",
-            "type": "node",
-            "request": "attach",
-            "processId": "${command.PickProcess}",
-            "port": 5858,
-            "sourceMaps": false,
+            "outputCapture": "std",
             "outFiles": []
         }
     ]
