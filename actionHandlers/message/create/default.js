@@ -113,5 +113,6 @@ exports.process = async (message, context) => {
             recipient.deliveredOn = new Date()
         }
     }
+    message.status = 'delivered'
     await message.save()
 }

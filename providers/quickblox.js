@@ -81,8 +81,8 @@ var login = function (callback) {
         'timestamp': time,
         'nonce': nonce,
         'user': {
-            'login': chatConfig.username,
-            'password': chatConfig.password
+            'login': 'looped@mindfulsas',
+            'password': 'fundo@123'
         }
     }, chatConfig.authSecret);
 
@@ -92,8 +92,8 @@ var login = function (callback) {
         'timestamp': time,
         'nonce': nonce,
         'user': {
-            'login': chatConfig.username,
-            'password': chatConfig.password
+            'login': 'looped@mindfulsas',
+            'password': 'fundo@123'
         },
         'signature': signature
     }), function (data, response) {
@@ -129,217 +129,219 @@ var getUser = function (userName, callback) {
 }
 
 var createUser = function (userName, callback) {
-        var log = logger.start('createUser')
-        var data = {
-            'login': chatConfig.username,
-            'password': chatConfig.password
+    var log = logger.start('createUser')
+    var data = {
+        login: userName,
+        password: 'fundo@123'
+    }
+    async.waterfall([
+        function (cb) {
+            if (needsLogin()) {
+                return login(cb)
+            }
+            cb(null)
+        },
+        function (cb) {
+            log.debug('checking if user exists')
+            getUser(userName, cb)
+        },
+        function (user, cb) {
+            if (user) {
+                log.info('user already exists. Using that')
+                return cb(null, user)
+            }
+            log.debug('user does not exist');
+            (new client()).post(getUrl('users'), getArgs({
+                user: data
+            }), function (response) {
+                cb(response.errors, response.user)
+            })
         }
-        async.waterfall([
-                    function (cb) {
-                        if (needsLogin()) {
-                            return login(cb)
-                        }
-                        cb(null)
-                    },
-                    function (cb) {
-                        log.debug('checking if user exists')
-                        getUser(userName, cb)
-                    },
-                    function (user, cb) {
-                        if (user) {
-                            log.info('user already exists. Using that')
-                            return cb(null, user)
-                        }
-                        log.debug('user does not exist');
-                        (new client()).post(getUrl('users'), getArgs({
-                            user: data
-                        }), function (response) {
-                            cb(response.errors, response.user)
-                        })
-                    }
-                ], function (errors, user) {
-                    if (needsLogin(errors)) {
-                        createUser(data, callback)
-                    } else if (errors) {
-                        log.error(errors)
-                        return callback(errors)
-                    } else {
-                        // {
-                        //     if (errors && errors.login && errors.login[0] === 'has already been taken') {
-                        //         return getUser(userName, callback);
-                        //     }
-                        log.info('done', user);
-                        user.password = chatConfig.password;
-                        return callback(null, user);
-                    }
+    ], function (errors, user) {
+        if (needsLogin(errors)) {
+            createUser(data, callback)
+        } else if (errors) {
+            log.error(errors)
+            return callback(errors)
+        } else {
+            // {
+            //     if (errors && errors.login && errors.login[0] === 'has already been taken') {
+            //         return getUser(userName, callback);
+            //     }
+            log.info('done', user)
+            user.password = 'fundo@123'
+            return callback(null, user)
+        }
+    })
+}
 
-                    var deleteUser = function (id, callback) {
-                        var log = logger.start('deleteUser')
-                        async.waterfall([
-                            function (cb) {
-                                if (needsLogin()) {
-                                    return login(cb)
-                                }
-                                cb(null)
-                            },
-                            function (cb) {
-                                log.debug('sending request');
-                                (new client()).delete(getUrl('users', id), getArgs(), function (response) {
-                                    cb(response.errors)
-                                })
-                            }
-                        ], function (errors) {
-                            if (needsLogin(errors)) {
-                                deleteUser(id, callback)
-                            } else {
-                                if (errors) {
-                                    log.error(errors)
-                                } else {
-                                    log.info('done')
-                                }
-                                return callback(errors)
-                            }
-                        })
-                    }
+var deleteUser = function (id, callback) {
+    var log = logger.start('deleteUser')
+    async.waterfall([
+        function (cb) {
+            if (needsLogin()) {
+                return login(cb)
+            }
+            cb(null)
+        },
+        function (cb) {
+            log.debug('sending request');
+            (new client()).delete(getUrl('users', id), getArgs(), function (response) {
+                cb(response.errors)
+            })
+        }
+    ], function (errors) {
+        if (needsLogin(errors)) {
+            deleteUser(id, callback)
+        } else {
+            if (errors) {
+                log.error(errors)
+            } else {
+                log.info('done')
+            }
+            return callback(errors)
+        }
+    })
+}
 
-                    var updateUser = function (id, data, callback) {
-                        var log = logger.start('updateUser')
-                        async.waterfall([
-                            function (cb) {
-                                if (needsLogin()) {
-                                    return login(cb)
-                                }
-                                cb(null)
-                            },
-                            function (cb) {
-                                (new client()).put(getUrl('users', id), getArgs({
-                                    user: data
-                                }), function (response) {
-                                    if (response.errors) {
-                                        log.error(response.errors)
-                                    } else {
-                                        log.info('done')
-                                    }
-                                    cb(response.errors)
-                                })
-                            }
-                        ], function (errors) {
-                            if (needsLogin(errors)) {
-                                updateUser(id, data, callback)
-                            } else {
-                                return callback(errors)
-                            }
-                        })
-                    }
+var updateUser = function (id, data, callback) {
+    var log = logger.start('updateUser')
+    async.waterfall([
+        function (cb) {
+            if (needsLogin()) {
+                return login(cb)
+            }
+            cb(null)
+        },
+        function (cb) {
+            (new client()).put(getUrl('users', id), getArgs({
+                user: data
+            }), function (response) {
+                if (response.errors) {
+                    log.error(response.errors)
+                } else {
+                    log.info('done')
+                }
+                cb(response.errors)
+            })
+        }
+    ], function (errors) {
+        if (needsLogin(errors)) {
+            updateUser(id, data, callback)
+        } else {
+            return callback(errors)
+        }
+    })
+}
 
-                    var notifyUser = function (data, callback) {
-                        var log = logger.method('notifyUser')
-                        async.waterfall([
-                            function (cb) {
-                                if (needsLogin()) {
-                                    return login(cb)
-                                }
-                                cb(null)
-                            },
-                            function (cb) {
-                                log.debug('request sent', data);
-                                (new client()).post(getUrl('events.json'), getArgs({
-                                    event: data
-                                }), function (response) {
-                                    if (response.errors) {
-                                        log.error(response.errors)
-                                        cb(response.errors)
-                                    } else {
-                                        log.debug(response)
-                                    }
-                                    cb(response.errors)
-                                })
-                            }
-                        ], function (errors) {
-                            if (needsLogin(errors)) {
-                                notifyUser(data, callback)
-                            } else {
-                                return callback(errors)
-                            }
-                        })
-                    }
+var notifyUser = function (data, callback) {
+    var log = logger.method('notifyUser')
+    async.waterfall([
+        function (cb) {
+            if (needsLogin()) {
+                return login(cb)
+            }
+            cb(null)
+        },
+        function (cb) {
+            log.debug('request sent', data);
+            (new client()).post(getUrl('events.json'), getArgs({
+                event: data
+            }), function (response) {
+                if (response.errors) {
+                    log.error(response.errors)
+                    cb(response.errors)
+                } else {
+                    log.debug(response)
+                }
+                cb(response.errors)
+            })
+        }
+    ], function (errors) {
+        if (needsLogin(errors)) {
+            notifyUser(data, callback)
+        } else {
+            return callback(errors)
+        }
+    })
+}
 
-                    var messageUser = function (id, message, callback) {
-                        var log = logger.method('messageUser')
-                        async.waterfall([
-                            function (cb) {
-                                if (needsLogin()) {
-                                    return login(cb)
-                                }
-                                cb(null)
-                            },
-                            function (cb) {
-                                var data = {
-                                    'message': message,
-                                    'recipient_id': id
-                                }
-                                log.debug('request sent', data);
-                                (new client()).post(getUrl('message.json'), getArgs(data), function (response) {
-                                    cb(response.errors)
-                                })
-                            }
-                        ], function (errors) {
-                            if (needsLogin(errors)) {
-                                messageUser(id, message, callback)
-                            } else {
-                                return callback(errors)
-                            }
-                        })
-                    }
+var messageUser = function (id, message, callback) {
+    var log = logger.method('messageUser')
+    async.waterfall([
+        function (cb) {
+            if (needsLogin()) {
+                return login(cb)
+            }
+            cb(null)
+        },
+        function (cb) {
+            var data = {
+                'message': message,
+                'recipient_id': id
+            }
+            log.debug('request sent', data);
+            (new client()).post(getUrl('message.json'), getArgs(data), function (response) {
+                cb(response.errors)
+            })
+        }
+    ], function (errors) {
+        if (needsLogin(errors)) {
+            messageUser(id, message, callback)
+        } else {
+            return callback(errors)
+        }
+    })
+}
 
-                    exports.createUser = function (data, callback) {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return callback(null, {})
-                        }
-                        return createUser(data, callback)
-                    }
+exports.createUser = function (data, callback) {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return callback(null, {})
+    }
+    return createUser(data, callback)
+}
 
-                    exports.updateUser = function (id, data, callback) {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return callback(null, {})
-                        }
-                        return updateUser(id, data, callback)
-                    }
+exports.updateUser = function (id, data, callback) {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return callback(null, {})
+    }
+    return updateUser(id, data, callback)
+}
 
-                    exports.deleteUser = function (data, callback) {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return callback(null, {})
-                        }
-                        return deleteUser(data, callback)
-                    }
+exports.deleteUser = function (data, callback) {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return callback(null, {})
+    }
+    return deleteUser(data, callback)
+}
 
-                    exports.notify = function (deviceId, data, callback) {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return callback(null, {})
-                        }
-                        return notifyUser(data, callback)
-                    }
+exports.notify = function (deviceId, data, callback) {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return callback(null, {})
+    }
+    return notifyUser(data, callback)
+}
 
-                    exports.chat = function (id, message, callback) {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return callback(null, {})
-                        }
-                        return messageUser(id, message, callback)
-                    }
+exports.chat = function (id, message, callback) {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return callback(null, {})
+    }
+    return messageUser(id, message, callback)
+}
 
-                    var init = function () {
-                        if (chatConfig.disabled) {
-                            logger.error('disabled')
-                            return
-                        }
-                        if (!session) {
-                            login()
-                        }
-                    }
+var init = function () {
+    if (chatConfig.disabled) {
+        logger.error('disabled')
+        return
+    }
+    if (!session) {
+        login()
+    }
+}
 
-                    init()
+init()

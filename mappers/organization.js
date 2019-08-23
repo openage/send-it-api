@@ -4,9 +4,12 @@ exports.toModel = (entity, context) => {
     var model = {
         id: entity.id,
         code: entity.code,
+        email: entity.email,
+        phone: entity.phone,
         name: entity.name,
         config: entity.config,
         status: entity.status,
+        logo: entity.logo,
         timeStamp: entity.timeStamp
     }
 

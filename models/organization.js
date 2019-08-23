@@ -5,6 +5,12 @@ module.exports = {
     name: String,
     shortName: String,
     type: String,
+    email: String,
+    phone: String,
+    logo: {
+        url: String,
+        thumbnail: String
+    },
     address: {
         line1: String,
         line2: String,

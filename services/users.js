@@ -212,6 +212,8 @@ exports.getByKey = async (roleKey, logger) => {
         let organization = await organizations.getOrCreate({
             code: role.organization.code,
             name: role.organization.name,
+            email: role.organization.email,
+            phone: role.organization.phone,
             shortName: role.organization.shortName,
             address: role.organization.address,
             logo: role.organization.logo

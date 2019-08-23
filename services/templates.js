@@ -1,7 +1,11 @@
 'use strict'
 
+const mammoth = require('mammoth')
+
 const entities = require('../models').template
 const db = require('../models')
+
+const documents = require('./documents')
 
 const getByCode = async (code, context) => {
     let template = null
@@ -22,9 +26,9 @@ const getByCode = async (code, context) => {
         })
     }
 
-    if (!template) {
-        throw new Error('TEMPLATE_IS_INVALID')
-    }
+    // if (!template) {
+    //     throw new Error('TEMPLATE_IS_INVALID')
+    // }
 
     return template
 }
@@ -46,6 +50,8 @@ const set = async (model, entity, context) => {
     }
 
     if (model.config) {
+
+        entity.config = entity.config || {}
 
         if (model.config.page) {
             entity.config.page = model.config.page
@@ -91,6 +97,12 @@ const set = async (model, entity, context) => {
     if (model.dataSource) {
         entity.dataSource = model.dataSource
     }
+
+    let isPublic = !!(model.isPublic === 'true' || model.isPublic === true)
+
+    if (isPublic) {
+        entity.isPublic = isPublic
+    }
 }
 
 exports.create = async (model, context) => {
@@ -124,32 +136,46 @@ exports.update = async (id, model, context) => {
 }
 
 exports.get = async (query, context) => {
+    let template = null
+
     if (typeof query === 'string') {
         if (query.isObjectId()) {
-            return db.template.findById(query).populate('attachment')
+            template = await db.template.findById(query).populate('attachment')
         } else {
-            return getByCode(query, context)
+            template = await getByCode(query, context)
         }
     }
 
     if (query.id) {
-        return db.template.findById(query).populate('attachment')
+        template = await db.template.findById(query).populate('attachment')
     }
 
     if (query.code) {
-        return getByCode(query.code, context)
+        template = await getByCode(query.code, context)
     }
 
-    return null
+    if (!template) {
+        throw new Error('TEMPLATE_IS_INVALID')
+    }
+
+    return template
 }
 
 exports.search = async (query, page, context) => {
-    const where = {
+    let where = {
         tenant: context.tenant
     }
 
-    if (query.level !== 'tenant') {
+    if (query.level == 'organization') {
         where.organization = context.organization
+    } else if (query.level == 'library') {
+        where.organization = { $exists: true }
+        where.isPublic = true
+    } else {
+        where = {
+            tenant: context.tenant,
+            isPublic: true
+        }
     }
 
     return {
@@ -158,3 +184,45 @@ exports.search = async (query, page, context) => {
 }
 
 exports.getByCode = getByCode
+
+const fileToHtml = (filePath, context) => {
+    return new Promise((resolve, reject) => {
+        mammoth.convertToHtml({ path: filePath }).then((result) => {
+            console.log(result.messages)
+            return resolve(result.value)
+        }).catch((err) => {
+            return reject(err)
+        })
+    })
+}
+
+exports.createWithFile = async (file, query, context) => {
+    let body = await fileToHtml(file.path, context)
+
+    let model = Object.assign({ body: body }, query)
+
+    return exports.create(model, context)
+}
+
+exports.cloneWithData = async (templateCode, body, context) => {   // clone template with Data
+
+    let model = {
+        code: body.code
+    }
+
+    let template = await getByCode(templateCode, context)
+
+    let doc = await documents.getDocByTemplate(body.data, template, context)
+    model.subject = doc.name
+    model.body = doc.content
+
+
+    model.config = body.config || template.config || {}
+
+    return exports.create(model, context)
+}
+
+exports.remove = async (id, context) => {
+    await db.template.remove({ id: id })
+    return true
+}

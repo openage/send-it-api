@@ -14,6 +14,10 @@ const set = async (model, entity, context) => {
     if (model.status) {
         entity.status = model.status
     }
+
+    if (model.body && (!entity.to || !entity.to.length)) {
+        entity.body = model.body
+    }
 }
 
 const injectDataInMeta = (meta, data) => {
@@ -172,12 +176,17 @@ exports.create = async (model, context) => {
 exports.search = async (query, page, context) => {
     let where = context.where()
 
+    // if (context.organization) {
+    //     where.add('organization', context.organization)
+    // }
+
     if (query.status) {
         // TODO:
         // where.to = {
         //     user: context.user,
         //     archivedOn: $exists
         // }
+        where.add('status', query.status)
     }
 
     if (query.mode) {
@@ -205,14 +214,30 @@ exports.search = async (query, page, context) => {
         where.add('conversation', conversation)
     }
 
+    if (query.to || query.to_email) {
+        let userQuery
+
+        if (query.to) {
+            userQuery = query.to
+        } else if (query.to_email) {
+            userQuery = { email: query.to_email }
+        }
+
+        let user = await users.get(userQuery, context)
+
+        if (user.status !== 'temp') {
+            where.add('to.user', user.id)
+        }
+    }
+
     if (!page || !page.limit) {
         return {
-            items: await db.message.find(where.clause).sort({ date: -1 }).populate('from')
+            items: await db.message.find(where.clause).sort({ date: -1 }).populate('from organization')
         }
     }
 
     return {
-        items: await db.message.find(where.clause).sort({ date: -1 }).limit(page.limit).skip(page.skip).populate('from'),
+        items: await db.message.find(where.clause).sort({ date: -1 }).limit(page.limit).skip(page.skip).populate('from organization'),
         count: await db.message.count(where.clause)
     }
 }

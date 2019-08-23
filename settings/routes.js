@@ -9,6 +9,9 @@ var appRoot = require('app-root-path')
 
 const specs = require('../specs')
 
+var multipart = require('connect-multiparty')
+var multipartMiddleware = multipart()
+
 module.exports.configure = function (app) {
     app.get('/', function (req, res) {
         res.render('index', {
@@ -218,7 +221,19 @@ module.exports.configure = function (app) {
         filter: auth.requiresRole
     }])
 
-    api.model('templates').register('REST', auth.requiresAdmin)
+    api.model('templates')
+        .register('REST', auth.requiresAdmin)
+        .register([{
+            action: 'POST',
+            method: 'createWithFile',
+            url: '/files',
+            filter: [multipartMiddleware, auth.requiresRole]
+        }, {
+            action: 'POST',
+            method: 'cloneWithData',
+            url: '/:code/clone',
+            filter: [auth.requiresRole]
+        }])
 
     api.model('summaries').register('REST', auth.requiresRole)
 }

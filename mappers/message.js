@@ -1,6 +1,7 @@
 'use strict'
 
 const userMapper = require('./user')
+const organizationMapper = require('./organization')
 exports.toModel = (entity, context) => {
     var model = {
         id: entity.id,
@@ -45,11 +46,17 @@ exports.toSummary = (entity) => {
         id: entity.id,
         body: entity.body,
         subject: entity.subject,
-        date: entity.date
+        date: entity.date,
+        status: entity.status,
+        modes: entity.modes
     }
 
     if (entity.from) {
         model.from = userMapper.toSummary(entity.from)
+    }
+
+    if (entity.organization) {
+        model.organization = organizationMapper.toModel(entity.organization)
     }
 
     return model

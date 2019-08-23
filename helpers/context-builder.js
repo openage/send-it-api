@@ -147,9 +147,9 @@ exports.create = async (claims, logger) => {
     context.where = () => {
         let clause = {}
 
-        if (context.organization) {
-            clause.organization = context.organization.id
-        }
+        // if (context.organization) {
+        //     clause.organization = context.organization.id
+        // }
 
         if (context.tenant) {
             clause.tenant = context.tenant.id

@@ -33,6 +33,12 @@ module.exports = {
         default: 'active',
         enum: ['active', 'inactive']
     },
+
+    isPublic: {
+        type: Boolean,
+        default: false
+    },
+
     logo: String, // logo of tenant or organization
     dp: String, // dispaly picture of user
     isHidden: Boolean, // For hidden operations
