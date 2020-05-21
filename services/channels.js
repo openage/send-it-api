@@ -97,6 +97,13 @@ const getByMode = async (mode, context) => {
         }).populate('tenant')
     }
 
+    if (channel) {
+        if (channel.provider.code === 'slack') {
+            channel.config.user = channel.config.user || {}
+            channel.config.user.code = channel.config.user.code || 'sendit_slack'
+        }
+    }
+
     return channel
 }
 
@@ -134,7 +141,13 @@ exports.get = async (query, context) => {
     context.logger.debug('services/channel:get')
 
     if (!query) {
-        return null
+        return
+    }
+
+    if (query._bsontype === 'ObjectID') {
+        query = {
+            id: query.toString()
+        }
     }
 
     if (typeof query === 'string') {

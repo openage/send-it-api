@@ -6,6 +6,7 @@ const entities = require('../models').template
 const db = require('../models')
 
 const documents = require('./documents')
+const templateImage = require('./template-image')
 
 const getByCode = async (code, context) => {
     let template = null
@@ -47,6 +48,7 @@ const set = async (model, entity, context) => {
 
     if (model.body) {
         entity.body = model.body
+        // entity.thumbnail = await templateImage.templateThumbnail(model.body, context)
     }
 
     if (model.config) {
@@ -114,7 +116,9 @@ exports.create = async (model, context) => {
             tenant: context.tenant
         })
     }
+
     await set(model, entity, context)
+
     return await entity.save()
 }
 
@@ -136,6 +140,17 @@ exports.update = async (id, model, context) => {
 }
 
 exports.get = async (query, context) => {
+
+    if (!query) {
+        return
+    }
+
+    if (query._bsontype === 'ObjectID') {
+        query = {
+            id: query.toString()
+        }
+    }
+
     let template = null
 
     if (typeof query === 'string') {
@@ -155,6 +170,7 @@ exports.get = async (query, context) => {
     }
 
     if (!template) {
+        context.logger.error(`template with code ${query.code} not found`)
         throw new Error('TEMPLATE_IS_INVALID')
     }
 
@@ -171,6 +187,8 @@ exports.search = async (query, page, context) => {
     } else if (query.level == 'library') {
         where.organization = { $exists: true }
         where.isPublic = true
+    } else if (query.level == 'tenant') {
+        where.organization = { $exists: false }
     } else {
         where = {
             tenant: context.tenant,

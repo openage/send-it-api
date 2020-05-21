@@ -3,6 +3,13 @@ var nodemailer = require('nodemailer')
 var mailgunTransport = require('nodemailer-mailgun-transport')
 var emailConfig = require('config').get('email')
 var logger = require('@open-age/logger')('mailgun')
+var request = require('request');
+
+const appRoot = require('app-root-path')
+const uuid = require('uuid/v1')
+const path = require('path')
+const fs = require('fs')
+const fileStore = require('config').get('file-store')
 
 const userToEmail = user => {
     if (!user.profile) {
@@ -17,6 +24,50 @@ const userToEmail = user => {
     return `${name}<${user.email}>`
 }
 
+const download = (url, name) => {
+
+    let fileName = `${uuid()}-${name}`
+
+    let dest = path.join(appRoot.path, `${fileStore.dir}/${fileName}`)
+
+    const file = fs.createWriteStream(dest);
+    const sendReq = request.get(url);
+
+    return new Promise((resolve, reject) => {
+
+        sendReq.on('response', (response) => {
+            if (response.statusCode !== 200) {
+                return reject(new Error(`Response status was ${response.statusCode}`))
+            }
+
+            sendReq.pipe(file);
+        });
+
+        file.on('finish', () => file.close(() => resolve(dest)));
+
+        sendReq.on('error', (err) => {
+            fs.unlink(dest);
+            return reject(err);
+        });
+
+        file.on('error', (err) => {
+            fs.unlink(dest);
+            return reject(err);
+        });
+    })
+}
+
+const cleanup = (payload) => {
+    if (!payload.attachments || !payload.attachments.length) {
+        return
+    }
+
+    for (const attachment of payload.attachments) {
+        if (attachment.path) {
+            fs.unlink(attachment.path)
+        }
+    }
+}
 
 const send = async (message, to, config) => {
     var log = logger.start('send')
@@ -38,8 +89,26 @@ const send = async (message, to, config) => {
     }
 
     if (message.attachments.length) {
-        payload.attachments = message.attachments
+        payload.attachments = []
+
+        for (const attachment of message.attachments) {
+
+            let file = {
+                filename: attachment.filename,
+                contentType: attachment.contentType || attachment.mimeType
+            }
+
+            if (attachment.url) {
+                file.path = await download(attachment.url, attachment.filename)
+            } else if (attachment.content && attachment.content.data && attachment.content.data.length) {
+                file.content = new Buffer(attachment.content.data)
+            }
+
+            payload.attachments.push(file)
+        }
+
     }
+
 
     const transporter = nodemailer.createTransport(mailgunTransport({
         service: 'Mailgun',
@@ -53,9 +122,11 @@ const send = async (message, to, config) => {
                     payload: payload,
                     error: err
                 })
+                cleanup(payload)
                 resolve(false)
             } else {
                 log.info('sent email')
+                cleanup(payload)
                 resolve(true)
             }
         })

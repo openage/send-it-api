@@ -5,6 +5,14 @@ const set = async (model, entity, context) => {
     if (model.name) {
         entity.name = model.name
     }
+
+    if (model.logo) {
+        entity.logo = {
+            url: model.logo.url,
+            thumbnail: model.thumbnail.url
+        }
+    }
+
     if (model.status) {
         entity.status = model.status
     }
@@ -19,20 +27,57 @@ const set = async (model, entity, context) => {
         }, {
             email: model.owner.email,
             name: model.owner.name,
-            tenant: tenant
+            tenant: entity
         })
 
-        tenant.owner = user.result
+        entity.owner = user.result
+    }
+    
+    if (!model.notifications) {
+        return
+    }
+
+    entity.notifications = entity.notifications || {
+        enabled: true,
+        subscriptions: {}
+    }
+
+    if (model.notifications.enabled !== undefined) {
+        entity.notifications.enabled = model.notifications.enabled
+    }
+
+    if (model.notifications.subscriptions) {
+        let keys = Object.keys(model.notifications.subscriptions)
+        for (let index = 0; index < keys.length; index++) {
+            entity.notifications.subscriptions[keys[index]] = model.notifications.subscriptions[keys[index]]
+        }
     }
 }
 
 exports.update = async (id, model, context) => {
-    if (id === 'me') {
+    if (id === 'me' || id === 'my') {
         id = context.tenant.id
     }
     let tenant = await db.tenant.findById(id).populate('owner')
     await set(model, tenant, context)
-    return await tenant.save()
+    return tenant.save()
+}
+
+exports.create = async (model, context) => {
+    let log = context.logger.start('services/tenants:create')
+
+    let tenant = await exports.get(model, context)
+
+    if (!tenant) {
+        tenant = new db.tenant({
+            code: model.code.toLowerCase(),
+            status: 'active'
+        }).save()
+    }
+
+    await set(model, tenant, context)
+    log.end()
+    return tenant
 }
 
 exports.get = async (query, context) => {
@@ -40,7 +85,7 @@ exports.get = async (query, context) => {
         if (query.isObjectId()) {
             return db.tenant.findById(query).populate('owner')
         } else {
-            if (query === 'me') {
+            if (query === 'me' || query === 'my') {
                 return db.tenant.findById(context.tenant.id).populate('owner')
             }
             return db.tenant.findOne({ code: query.toLowerCase() }).populate('owner')
@@ -48,7 +93,7 @@ exports.get = async (query, context) => {
     }
 
     if (query.id) {
-        if (query.id === 'me') {
+        if (query.id === 'me' || query.id === 'my') {
             return db.tenant.findById(context.tenant.id).populate('owner')
         }
         return db.tenant.findById(query.id).populate('owner')

@@ -6,7 +6,7 @@ const mapper = require('../mappers/user')
 
 const api = require('./api-base')('users', 'user')
 api.subscribe = async (req) => {
-    let entity = await service.update('me', {
+    let entity = await service.update('my', {
         notifications: {
             subscriptions: [{
                 key: req.params.key,
@@ -18,7 +18,7 @@ api.subscribe = async (req) => {
 }
 
 api.unsubscribe = async (req) => {
-    let entity = await service.update('me', {
+    let entity = await service.update('my', {
         notifications: {
             subscriptions: [{
                 key: req.params.key,
@@ -31,7 +31,7 @@ api.unsubscribe = async (req) => {
 }
 
 api.mute = async (req) => {
-    let entity = await service.update('me', {
+    let entity = await service.update('my', {
         notifications: {
             enabled: false
         }
@@ -40,7 +40,7 @@ api.mute = async (req) => {
 }
 
 api.unmute = async (req) => {
-    let entity = await service.update('me', {
+    let entity = await service.update('my', {
         notifications: {
             enabled: true
         }

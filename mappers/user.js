@@ -1,5 +1,4 @@
 'use strict'
-var _ = require('underscore')
 
 exports.toModel = (entity, context) => {
     var model = {
@@ -8,7 +7,13 @@ exports.toModel = (entity, context) => {
         email: entity.email,
         phone: entity.phone,
         status: entity.status,
-        devices: entity.devices,
+        devices: (entity.devices || []).map(d => {
+            return {
+                id: d.id,
+                name: d.name,
+                status: d.status
+            }
+        }),
         notifications: entity.notifications,
         timeStamp: entity.timeStamp
     }
@@ -22,43 +27,28 @@ exports.toModel = (entity, context) => {
         if (entity.profile.pic) {
             model.profile.pic = {
                 url: entity.profile.pic.url,
-                data: entity.profile.pic.data
+                thumbnail: entity.profile.pic.thumbnail
             }
         }
     }
 
-    if (entity.roles) {
-        model.roles = []
-
-        entity.roles.forEach(item => {
-            let role = {
-                level: item.level,
-                token: item.token,
-                permissions: item.permissions
-            }
-            if (item.entity) {
-                role.entity = {}
-                if (item.entity.code) {
-                    role.entity.id = item.entity.id
-                    role.entity.code = item.entity.code
-                    role.entity.name = item.entity.name
-                } else {
-                    role.entity.id = item.entity
-                }
-            }
-            model.roles.push(role)
-        })
+    if (entity.role) {
+        model.role = {
+            id: entity.role.id,
+            code: entity.role.code
+        }
     }
 
-    if (entity.organization) {
+    if (entity.organization && entity.organization._doc) {
+        var orgLogo = entity.organization.logo || {}
         model.organization = {
-            id: entity.organization.toString()
-        }
-    }
-
-    if (entity.tenant) {
-        model.tenant = {
-            id: entity.tenant.toString()
+            id: entity.organization.id,
+            code: entity.organization.code,
+            name: entity.organization.name,
+            logo: {
+                url: orgLogo.url,
+                thumbnail: orgLogo.thumbnail
+            }
         }
     }
 
@@ -66,6 +56,11 @@ exports.toModel = (entity, context) => {
 }
 
 exports.toSummary = (entity) => {
+    if (!entity._doc) {
+        return {
+            id: entity.toString()
+        }
+    }
     const model = {
         id: entity.id,
         code: entity.code,
@@ -81,8 +76,15 @@ exports.toSummary = (entity) => {
         if (entity.profile.pic) {
             model.profile.pic = {
                 url: entity.profile.pic.url,
-                data: entity.profile.pic.data
+                thumbnail: entity.profile.pic.thumbnail
             }
+        }
+    }
+
+    if (entity.role) {
+        model.role = {
+            id: entity.role.id,
+            code: entity.role.code
         }
     }
 

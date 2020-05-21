@@ -21,7 +21,7 @@ module.exports = {
     modes: {
         sms: Boolean,
         email: Boolean,
-        // chat: Boolean,
+        chat: Boolean,
         push: Boolean
     },
     priority: {
@@ -30,10 +30,12 @@ module.exports = {
         enum: ['low', 'medium', 'high']
     },
     attachments: [{
-        MIMEtype: String,
+        mimeType: String,
         thumbnail: String,
         description: String,
-        url: String
+        url: String,
+        filename: String,
+        content: mongoose.Schema.Types.Mixed
     }],
     data: Object,
     meta: Object,
@@ -54,5 +56,9 @@ module.exports = {
         type: String,
         default: 'queued',
         enum: ['queued', 'delivered', 'viewed', 'processed', 'archived']
+    },
+    externalId: {
+        type: String,
+        default: null,
     }
 }

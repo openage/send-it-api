@@ -2,7 +2,7 @@
 const fs = require('fs')
 const join = require('path').join
 const mongoose = require('mongoose')
-const paramCase = require('param-case')
+const changeCase = require('change-case')
 const findOrCreate = require('findorcreate-promise')
 
 mongoose.Promise = global.Promise
@@ -26,7 +26,7 @@ var init = function () {
                 next()
             })
 
-            mongoose.model(paramCase(name), schema)
+            mongoose.model(changeCase.camelCase(name), schema)
         }
     })
 }

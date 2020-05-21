@@ -1,2 +1,1 @@
-const api = require('./api-base')('messages', 'message')
-module.exports = api
+module.exports = require('./api-base')('messages', 'message')

@@ -1,27 +1,18 @@
 'use strict'
 var mongoose = require('mongoose')
 module.exports = {
+    tackingId: String,
     role: {
         id: String,
         key: String,
         code: String,
         permissions: [{
             type: String
-        }],
-        user: {
-            id: String
-        },
-        organization: {
-            id: String,
-            code: String,
-            name: String
-        }
+        }]
     },
     email: String,
     phone: String,
     code: String,
-    token: String, // TODO: obsolete
-    otp: String, // TODO: obsolete
     profile: {
         firstName: String,
         lastName: String,
@@ -41,6 +32,7 @@ module.exports = {
         pinCode: String,
         country: String
     },
+    config: Object,
     status: String,
     chat: {
         id: Number,
@@ -66,12 +58,6 @@ module.exports = {
     },
 
     lastSeen: Date,
-    organization: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'organization'
-    },
-    tenant: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'tenant'
-    }
+    organization: { type: mongoose.Schema.Types.ObjectId, ref: 'organization' },
+    tenant: { type: mongoose.Schema.Types.ObjectId, ref: 'tenant' }
 }

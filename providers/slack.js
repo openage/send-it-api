@@ -1,51 +1,118 @@
 'use strict'
-const logger = require('@open-age/logger')('channels.slack')
-var defaultConfig = require('config').get('providers.slack')
-var Slack = require('slack-node')
+// const logger = require('@open-age/logger')('channels.slack')
+// var defaultConfig = require('config').get('providers.slack')
+var Slack = require('slack');
 
-let getConfig = (config) => {
-    if (!config) {
-        return defaultConfig
+const send = async (message, config) => {
+    var channel = message.channel || config.channel
+    if (!channel) {
+        return
     }
 
-    return {
-        webhookUrl: config.webhookUrl || defaultConfig.webhookUrl,
-        channel: config.channel || defaultConfig.channel,
-        username: config.username || defaultConfig.username,
-        icon_emoji: config.icon_emoji || defaultConfig.icon_emoji,
+    let slackEntity = await new Slack({ token: config.token })
+    let data = await slackEntity.chat.postMessage({
         token: config.token,
-        domain: config.domain
+        channel: channel,
+        text: message.subject
+    })
+    return {
+        id: data.ts,
+        timeStamp: data.ts
     }
 }
 
-const send = (message, to, config) => {
-    var log = logger.start('sending slack message')
+const search = async (query, config) => {
+    let messages = []
 
-    let configuration = getConfig(config)
-    var slack = new Slack(configuration.token, configuration.token)
-    slack.setWebhook(configuration.webhookUrl)
+    var channel = query.channel || config.channel
+    if (!channel) {
+        return messages
+    }
 
-    return new Promise((resolve, reject) => {
-        slack.webhook({
-            channel: configuration.channel,
-            username: configuration.username,
-            icon_emoji: config.icon_emoji,
-            text: message.message
-        }, function (err, response) {
-            if (err) {
-                logger.error('err in slack provider')
-                logger.error(err)
-            }
-            return resolve(null)
+    var opts = {
+        token: config.token,
+        count: 100,
+        // inclusive: true,
+        channel: channel
+    }
+
+    if (query.from) {
+        opts.oldest = query.from;
+    }
+    if (query.till) {
+        opts.latest = query.till;
+    }
+
+    console.log(`token: ${config.token}, channel: ${channel}, oldest: ${opts.oldest}, latest: ${opts.oldest}`)
+
+    let slackEntity = await new Slack({ token: config.token })
+
+    let data = await slackEntity.channels.history(opts)
+
+    console.log(`messages: ${data.messages.length} no(s)`)
+
+    for (const message of data.messages) {
+        if (message.username === config.user.code) {
+            continue
+        }
+
+        if (!message.client_msg_id) {
+            continue
+        }
+
+        const userData = await slackEntity.users.info({
+            token: config.token,
+            user: message.user
         })
+
+        if (!userData.user) {
+            continue
+        }
+        const user = {
+            email: userData.user.profile.email,
+            profile: {
+                firstName: userData.user.profile.real_name,
+                lastName: ''
+            }
+        }
+
+        messages.push({
+            id: message.ts,
+            timeStamp: message.ts,
+            subject: message.text,
+            from: user
+        })
+    }
+
+    messages = messages.sort((a, b) => {
+        return parseFloat(a.timeStamp) - parseFloat(b.timeStamp)
     })
+
+
+    return messages
 }
-
-
-exports.config = function (config) {
+exports.config = function (providerConfig) {
     return {
-        send: async (message, to) => {
-            return send(message, to, config)
+        send: async (message, channelConfig) => {
+            return send(message, {
+                channel: channelConfig.channel || providerConfig.channel,
+                token: channelConfig.token || providerConfig.token,
+                user: channelConfig.user || providerConfig.user
+            })
+        },
+        publish: async (message, channelConfig) => {
+            return send(message, {
+                channel: channelConfig.channel || providerConfig.channel,
+                token: channelConfig.token || providerConfig.token,
+                user: channelConfig.user || providerConfig.user
+            })
+        },
+        search: async (query, channelConfig) => {
+            return search(query, {
+                channel: channelConfig.channel || providerConfig.channel,
+                token: channelConfig.token || providerConfig.token,
+                user: channelConfig.user || providerConfig.user
+            })
         }
     }
 }

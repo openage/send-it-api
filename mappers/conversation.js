@@ -7,7 +7,9 @@ exports.toModel = (entity, context) => {
         id: entity.id,
         name: entity.name,
         description: entity.description,
+        pic: {},
         type: entity.type,
+        entity: {},
         isPublic: entity.isPublic,
         category: entity.category,
 
@@ -23,18 +25,42 @@ exports.toModel = (entity, context) => {
         }
     }
 
+    model.participants = entity.participants.map(p => userMapper.toSummary(p))
+
+    if (entity.pic) {
+        model.pic = {
+            url: entity.pic.url,
+            thumbnail: entity.pic.thumbnail
+        }
+    }
+
+    if (!model.name) {
+        if (entity.type === 'direct') {
+            let participant = model.participants.find(i => i.id !== context.user.id)
+            if (participant) {
+                model.name = ` ${participant.profile.firstName} ${participant.profile.lastName || ''}`.trim()
+                model.pic = participant.profile.pic
+                model.description = participant.code
+            }
+        } else {
+            if (entity.type === 'entity') {
+                model.name = model.entity.name || model.entity.type
+            }
+        }
+    }
+
     if (entity.lastMessage) {
         model.lastMessage = messageMapper.toSummary(entity.lastMessage)
     }
 
-    model.participants = entity.participants.map(p => userMapper.toSummary(p))
-
     if (entity.organization) {
-        model.organization = {
+        model.organization = entity.organization._doc ? {
             id: entity.organization.id,
             code: entity.organization.code,
             name: entity.organization.name
-        }
+        } : {
+                id: entity.organization.toString()
+            }
     }
 
     // if (entity.tenant) {

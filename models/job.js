@@ -5,6 +5,7 @@ module.exports = {
     name: String,
     processor: String,
     periodicity: {
+        expression: String,
         type: {
             type: String,
             default: 'daily',
@@ -21,9 +22,24 @@ module.exports = {
     dataSource: Object,
     config: Object,
 
+    last: {
+        time: Date,
+        status: String,
+        error: Object
+    },
+
+    next: {
+        time: Date,
+        status: String
+    },
+
     template: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'template'
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user'
     },
     organization: {
         type: mongoose.Schema.Types.ObjectId,

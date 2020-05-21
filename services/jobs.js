@@ -4,6 +4,16 @@ const messages = require('./messages')
 
 const dataSources = require('./data-sources')
 
+const populate = 'template tenant organization user'
+
+const extract = (item, field) => {
+    let value = item
+    field.split('.').forEach(part => {
+        value = value[part]
+    });
+    return value
+}
+
 const set = async (model, entity, context) => {
     if (model.name) {
         entity.name = model.name
@@ -59,11 +69,12 @@ exports.create = async (model, context) => {
         tenant: context.tenant
     }
 
-    let entity = await db.job.findOne(where).populate('template tenant organization')
+    let entity = await db.job.findOne(where).populate(populate)
 
     if (!entity) {
         entity = new db.job({
             code: model.code.toLowerCase(),
+            user: context.user,
             organization: context.organization,
             tenant: context.tenant
         })
@@ -74,7 +85,7 @@ exports.create = async (model, context) => {
 }
 
 exports.update = async (id, model, context) => {
-    let entity = await db.job.findById(id).populate('template tenant organization')
+    let entity = await db.job.findById(id).populate(populate)
     await set(model, entity, context)
     return await entity.save()
 }
@@ -98,16 +109,26 @@ exports.run = async (job, context) => {
         if (entityConfig) {
             conversation = {
                 entity: {
-                    id: item[entityConfig.field],
+                    id: extract(item, entityConfig.field),
                     type: entityConfig.type
                 }
             }
+        }
+
+        let to = toConfig
+
+        if (toConfig && toConfig.field) {
+            to = extract(item, toConfig.field)
+        }
+
+        if (!Array.isArray(to)) {
+            to = [to]
         }
         await messages.create({
             template: job.template,
             modes: job.config.modes,
             conversation: conversation,
-            to: toConfig,
+            to: to,
             data: item
         }, context)
 
@@ -124,20 +145,20 @@ exports.get = async (query, context) => {
 
     if (typeof query === 'string') {
         if (query.isObjectId()) {
-            return db.job.findById(query).populate('template tenant organization')
+            return db.job.findById(query).populate(populate)
         } else {
             where.code = query.toLowerCase()
-            return db.job.findOne(where).populate('template tenant organization')
+            return db.job.findOne(where).populate(populate)
         }
     }
 
     if (query.id) {
-        return db.job.findById(query.id).populate('owner')
+        return db.job.findById(query.id).populate(populate)
     }
 
     if (query.code) {
         where.code = query.code.toLowerCase()
-        return db.job.findOne(where).populate('template tenant organization')
+        return db.job.findOne(where).populate(populate)
     }
 
     return null
@@ -161,12 +182,12 @@ exports.search = async (query, page, context) => {
 
     if (!page || !page.limit) {
         return {
-            items: await db.job.find(where).sort({ timestamp: 1 })
+            items: await db.job.find(where).sort({ timestamp: 1 }).populate(populate)
         }
     }
 
     return {
-        items: await db.job.find(where).sort({ timestamp: 1 }).limit(page.limit).skip(page.skip),
+        items: await db.job.find(where).sort({ timestamp: 1 }).limit(page.limit).skip(page.skip).populate(populate),
         count: await db.job.count(where)
     }
 }

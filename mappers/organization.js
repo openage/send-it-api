@@ -1,6 +1,11 @@
 'use strict'
 
 exports.toModel = (entity, context) => {
+    if (!entity._doc) {
+        return {
+            id: entity.toString()
+        }
+    }
     var model = {
         id: entity.id,
         code: entity.code,

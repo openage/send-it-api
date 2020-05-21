@@ -4,15 +4,15 @@
         "host": "mongodb://localhost:27017/oa_send_it"
     },
     "webServer": {
-        "rootUrl": "http://localhost:3002",
+        "url": "https://dev.openage.in/send-it",
         "port": 3002
     },
     "queueServer": {
         "disabled": true
     },
-    "system": {
+    "support": {
         "name": "Open Age",
-        "emailId": "no_reply@openage.in"
+        "email": "support@openage.in"
     },
     "auth": {
         "provider": "directory"
@@ -21,14 +21,14 @@
         "provider": "mailgun"
     },
     "push": {
-        "provider": "oneSignal"
+        "provider": "firebase"
     },
     "sms": {
         "provider": "routesms"
     },
     "logger": {
         "console": {
-            "level": "debug",
+            "level": "silly",
             "handleExceptions": true,
             "json": false,
             "colorize": true
@@ -36,7 +36,7 @@
     },
     "providers": {
         "directory": {
-            "url": "http://localhost:3001/api"
+            "url": "https://dev.openage.in/directory/api"
         },
         "smtp": {
             "host": "placeholder",
@@ -91,5 +91,11 @@
             "dlr": "placeholder",
             "source": "placeholder"
         }
+    },
+    "formats": {
+        "date": "DD-MM-YYYY"
+    },
+    "organization": {
+        "timeZone": "IST"
     }
 }

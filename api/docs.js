@@ -1,5 +1,6 @@
 'use strict'
 
+const fs = require('fs')
 const documents = require('../services/documents')
 
 exports.getByDataId = function (req, res) {
@@ -20,4 +21,17 @@ exports.getByModel = function (req, res) {
 
 exports.createPreview = async (req) => {
     return documents.getDocByModel(req.body, req.params.code, req.context)
+}
+
+
+exports.getDocxByModel = (req, res) => {
+    documents.getDocxByModel(req.body, req.params.code, req.context).then(file => {
+        res.download(file.path, (err) => {
+            if (err) {
+                throw new Error(err)
+            }
+
+            fs.unlinkSync(file.path)
+        })
+    }).catch(err => res.failure(err))
 }

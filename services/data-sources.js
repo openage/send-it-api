@@ -74,7 +74,7 @@ exports.fetch = async (data, context) => {
 
     let connectionString = formatter(dataSource.connectionString).inject(params)
 
-    let meta = formatter(JSON.stringify(dataSource.meta)).inject(params)
+    let meta = formatter(JSON.stringify(dataSource.meta || {})).inject(params)
     meta = JSON.parse(meta)
 
     switch (dataSource.type) {

@@ -30,6 +30,10 @@ module.exports = {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'message'
     },
+    organization: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'organization'
+    },
     tenant: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'tenant'
@@ -38,5 +42,12 @@ module.exports = {
         type: String,
         default: 'active',
         enum: ['active', 'in-active', 'archived']
+    },
+    config: {
+        push: { provider: Object, config: Object },
+        chat: { provider: Object, config: Object },
+        sms: { provider: Object, config: Object },
+        email: { provider: Object, config: Object },
     }
+
 }

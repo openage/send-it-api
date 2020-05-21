@@ -10,6 +10,8 @@ exports.toModel = (entity, context) => {
         body: entity.body,
         config: entity.config,
 
+        thumbnail: entity.thumbnail,
+
         status: entity.status,
         timeStamp: entity.timeStamp
     }

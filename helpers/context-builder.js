@@ -4,25 +4,39 @@ const locks = require('./locks')
 
 const defaultConfig = require('config').get('organization')
 
-const searchInConfig = (identifier, config) => {
-    var keys = identifier.split('.')
-    var value = config
-
-    for (var key of keys) {
-        if (!value[key]) {
-            return null
-        }
-        value = value[key]
-    }
-
-    return value
-}
+const users = require('../services/users')
 
 exports.create = async (claims, logger) => {
     let context = {
+        id: claims.id,
         logger: logger || claims.logger,
         config: defaultConfig,
         permissions: []
+    }
+
+    context.getConfig = (identifier, defaultValue) => {
+        let keys = identifier.split('.')
+        let value = context.config
+
+        for (let key of keys) {
+            if (!value[key]) {
+                value = null
+                break
+            }
+            value = value[key]
+        }
+
+        if (!value) {
+            value = defaultConfig
+            for (let key of keys) {
+                if (!value[key]) {
+                    return defaultValue
+                }
+                value = value[key]
+            }
+        }
+
+        return value
     }
 
     let log = context.logger.start('context-builder:create')
@@ -31,22 +45,24 @@ exports.create = async (claims, logger) => {
         if (!user) {
             return
         }
-        if (user._doc) {
+        if (user._bsontype === 'ObjectId') {
+            context.user = await db.user.findById(user)
+        } else if (user._doc) {
             context.user = user
         } else if (user.id) {
-            context.user = await db.user.findOne({ _id: user.id }).populate('organization tenant')
+            context.user = await users.get(user.id)
+        }
+
+        if (!context.tenant) {
+            await context.setTenant(context.user.tenant)
+        }
+
+        if (!context.organization) {
+            await context.setOrganization(context.user.organization)
         }
 
         if (user.role && user.role.permissions) {
             context.permissions.push(...user.role.permissions)
-        }
-
-        if (context.organization && context.organization.owner && context.organization.owner.id === context.user.id) {
-            context.permissions.push(...['organization.owner', 'organization.admin'])
-        }
-
-        if (context.tenant && context.tenant.owner && context.tenant.owner.id === context.user.id) {
-            context.permissions.push(...['tenant.owner', 'tenant.admin'])
         }
 
         context.logger.context.user = {
@@ -59,17 +75,21 @@ exports.create = async (claims, logger) => {
         if (!organization) {
             return
         }
-        if (organization._doc) {
+        if (organization._bsontype === 'ObjectID') {
+            context.organization = await db.organization.findById(organization).populate('tenant')
+        } else if (organization._doc) {
             context.organization = organization
         } else if (organization.id) {
-            context.organization = await db.organization.findOne({ _id: organization.id }).populate('owner tenant')
+            context.organization = await db.organization.findById(organization.id).populate('tenant')
         } else if (organization.key) {
-            context.organization = await db.organization.findOne({ key: organization.key }).populate('owner tenant')
+            context.organization = await db.organization.findOne({ key: organization.key }).populate('tenant')
         } else if (organization.code) {
             context.organization = await db.organization.findOne({
                 code: organization.code,
                 tenant: context.tenant
-            }).populate('owner tenant')
+            }).populate('tenant')
+        } else {
+            context.organization = await db.organization.findById(organization).populate('tenant')
         }
 
         if (context.organization.config) {
@@ -87,15 +107,19 @@ exports.create = async (claims, logger) => {
         if (!tenant) {
             return
         }
-        if (tenant._doc) {
+        if (tenant._bsontype === 'ObjectId') {
+            context.tenant = await db.tenant.findById(tenant)
+        } else if (tenant._doc) {
             context.tenant = tenant
         } else if (tenant.id) {
-            context.tenant = await db.tenant.findOne({ _id: tenant.id }).populate('owner')
+            context.tenant = await db.tenant.findById(tenant.id)
         } else if (tenant.key) {
-            context.tenant = await db.tenant.findOne({ key: tenant.key }).populate('owner')
+            context.tenant = await db.tenant.findOne({ key: tenant.key })
         } else if (tenant.code) {
-            context.tenant = await db.tenant.findOne({ code: tenant.code }).populate('owner')
+            context.tenant = await db.tenant.findOne({ code: tenant.code })
         }
+
+        if (!context.tenant) { return }
 
         context.logger.context.tenant = {
             id: context.tenant.id,
@@ -103,32 +127,13 @@ exports.create = async (claims, logger) => {
         }
     }
 
+    if (claims.role && claims.role.key) {
+        claims.user = await users.get(claims.role.key, context)
+    }
+
     await context.setTenant(claims.tenant)
     await context.setOrganization(claims.organization)
     await context.setUser(claims.user)
-
-    context.getConfig = (identifier, defaultValue) => {
-        var value = searchInConfig(identifier, context.config)
-        if (!value) {
-            value = searchInConfig(identifier, defaultConfig)
-        }
-        if (!value) {
-            value = defaultValue
-        }
-        return value
-    }
-
-    context.hasPermission = (request) => {
-        if (!request) {
-            return true
-        }
-
-        let items = Array.isArray(request) ? request : [request]
-
-        return context.permissions.find(permission => {
-            return items.find(item => item.toLowerCase() === permission)
-        })
-    }
 
     context.lock = async (resource) => {
         return locks.acquire(resource, context)
@@ -139,33 +144,9 @@ exports.create = async (claims, logger) => {
             return
         }
 
-        let task = await db.task.findById(task.id)
+        let task = await db.task.findById(context.task.id)
         task.progress = Math.floor(100 * value / outOf)
-        contenxt.task = await task.save()
-    }
-
-    context.where = () => {
-        let clause = {}
-
-        // if (context.organization) {
-        //     clause.organization = context.organization.id
-        // }
-
-        if (context.tenant) {
-            clause.tenant = context.tenant.id
-        }
-
-        let filters = {}
-        filters.add = (key, value) => {
-            if (value !== undefined) {
-                clause[key] = value
-            }
-            return clause
-        }
-
-        filters.clause = clause
-
-        return filters
+        context.task = await task.save()
     }
 
     log.end()
@@ -191,26 +172,6 @@ exports.serializer = async (context) => {
     return serialized
 }
 
-exports.deserializer = async (serialized, logger) => {
-    let claims = {}
-
-    if (serialized.userId) {
-        claims.user = {
-            id: serialized.userId
-        }
-    }
-
-    if (serialized.organizationId) {
-        claims.organization = {
-            id: serialized.organizationId
-        }
-    }
-
-    if (serialized.tenantId) {
-        claims.tenant = {
-            id: serialized.tenantId
-        }
-    }
-
+exports.deserializer = async (claims, logger) => {
     return exports.create(claims, logger)
 }

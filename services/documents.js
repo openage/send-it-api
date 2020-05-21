@@ -1,21 +1,91 @@
 'use strict'
-
+const fs = require('fs')
+const path = require('path')
+const appRoot = require('app-root-path')
+const HtmlDocx = require('html-docx-js')
 const pdf = require('html-pdf')
 const dataSources = require('./data-sources')
 const formatter = require('../helpers/template').formatter
 const templateService = require('./templates')
+const fileStore = require('config').get('file-store')
+
+const extractContext = (context) => {
+
+    const pic = (item) => {
+        item = item || {}
+        return {
+            url: item.url,
+            thumbnail: item.thumbnail
+        }
+    }
+
+    let result = {}
+
+    if (context.tenant) {
+        result.tenant = {
+            id: context.tenant.id,
+            code: context.tenant.code,
+            name: context.tenant.name,
+            logo: pic(context.tenant.logo)
+        }
+    }
+
+    if (context.organization) {
+        result.organization = {
+            id: context.organization.id,
+            code: context.organization.code,
+            shortName: context.organization.shortName,
+            name: context.organization.name,
+            logo: pic(context.organization.logo),
+            address: {}
+        }
+
+        if (context.organization.address) {
+            result.organization.address = {
+                line1: result.organization.address.line1,
+                line2: result.organization.address.line2,
+                district: result.organization.address.district,
+                city: result.organization.address.city,
+                state: result.organization.address.state,
+                pinCode: result.organization.address.pinCode,
+                country: result.organization.address.country
+            }
+        }
+    }
+
+    if (context.user) {
+        result.user = {
+            id: context.user.id,
+            code: context.user.code,
+            email: context.user.email,
+            phone: context.user.phone,
+            profile: {
+                firstName: context.user.profile.firstName,
+                lastName: context.user.profile.lastName,
+                pic: pic(context.user.profile.pic)
+            },
+            role: {
+                id: context.user.role.id,
+            }
+        }
+    }
+
+    return result
+}
 
 const builder = (template, context) => {
     const subjectFormatter = formatter(template.subject || '')
     const bodyFormatter = formatter(template.body || '')
     return {
         inject: (data) => {
+            data.context = extractContext(context)
             return {
                 name: subjectFormatter.inject(data),
                 content: bodyFormatter.inject(data)
             }
         },
         toPdf: (data) => {
+            data.context = extractContext(context)
             let content = bodyFormatter.inject(data)
             return pdf.create(content, template.config)
         }
@@ -71,4 +141,25 @@ exports.getDocByModel = async (model, code, context) => {
 
 exports.getDocByTemplate = async (data, template, context) => {
     return builder(template, context).inject(data)
+}
+
+exports.getDocxByModel = async (model, code, context) => {
+    let template = await templateService.get(code, context)
+
+    let items = await dataSources.fetch(model, context)
+
+    const fileName = `${Date.now()}.doc`
+    let destination = path.join(appRoot.path, `${fileStore.dir}/${fileName}`)
+
+    return new Promise((resolve, reject) => {
+        let docxTemplate = builder(template, context).toPdf(items[0])
+        const docx = HtmlDocx.asBlob(docxTemplate.html);
+
+        fs.writeFile(destination, docx, function (err) {
+            if (err) {
+                return reject(err)
+            }
+            return resolve({ path: destination })
+        });
+    })
 }

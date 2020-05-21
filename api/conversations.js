@@ -3,29 +3,65 @@ const mapper = require('../mappers/conversation')
 
 const api = require('./api-base')('conversations', 'conversation')
 
-api.get = async (req) => {
-    let entity
-    if (req.params.id === 'entity') {
-        entity = await service.getEntityConversation({
-            id: req.query['entity-id'],
-            type: req.query['entity-type'],
-            name: req.query['entity-name']
-        }, req.context)
-    } else if (req.params.id === 'direct') {
-        entity = await service.getDirectConversation(req.query['user-ids'], req.context)
-    } else {
-        entity = await service.get(req.params.id, req.context)
+const requestHelper = require('../helpers/paging')
+
+const getConversation = (req) => {
+    let conversation = {}
+    const query = requestHelper.query(req)
+
+    switch (req.params.id) {
+        case 'entity':
+            conversation.entity = query.entity
+            break
+        case 'direct':
+            conversation.user = query.user
+            break
+        default:
+            conversation.id = req.params.id
+            break
     }
+
+    return conversation
+}
+
+api.get = async (req) => {
+    let conversation = getConversation(req)
+    let entity = await service.get(conversation, req.context)
     return mapper.toModel(entity, req.context)
 }
 
-api.addParticant = async (req) => {
-    let entity = await service.addParticipant(req.params.id, req.body, req.context)
+
+api.update = async (req) => {
+    let conversation = getConversation(req)
+    entity = await service.update(conversation, req.body, req.context)
+    return mapper.toModel(entity, req.context)
+}
+
+
+api.addParticipant = async (req) => {
+    let conversation = getConversation(req)
+    let entity = await service.addParticipant(conversation, req.body, req.context)
     return mapper.toModel(entity, req.context)
 }
 
 api.removeParticipant = async (req) => {
-    let entity = await service.removeParticipant(req.params.id, req.body, req.context)
+    let conversation = getConversation(req)
+    let entity = await service.removeParticipant(conversation, {
+        role: {
+            id: req.params.roleId
+        }
+    }, req.context)
+    return mapper.toModel(entity, req.context)
+}
+
+api.getDirectConversationByRoleId = async (req) => {
+    let entity = await service.get({
+        user: {
+            role: {
+                id: req.params.id
+            }
+        }
+    }, req.context)
     return mapper.toModel(entity, req.context)
 }
 

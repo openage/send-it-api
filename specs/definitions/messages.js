@@ -17,7 +17,7 @@ module.exports = {
     }],
     priority: String,
     attachments: [{
-        MIMEtype: String,
+        mimeType: String,
         thumbnail: String,
         url: String
     }],

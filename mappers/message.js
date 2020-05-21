@@ -10,14 +10,22 @@ exports.toModel = (entity, context) => {
         date: entity.date,
         priority: entity.priority,
         category: entity.category,
-        attachments: entity.attachments,
+        attachments: (entity.attachments || []).map(a => {
+            return {
+                filename: a.filename,
+                mimeType: a.mimeType,
+                thumbnail: a.thumbnail,
+                description: a.description,
+                url: a.url
+            }
+        }),
         meta: entity.meta,
         status: entity.status,
         timeStamp: entity.timeStamp
     }
 
     if (entity.from) {
-        model.from = userMapper.toSummary(entity.from)
+        model.from = userMapper.toModel(entity.from)
     }
 
     model.to = entity.to.map(t => {
@@ -29,6 +37,18 @@ exports.toModel = (entity, context) => {
             archivedOn: t.archivedOn
         }
     })
+
+    if (entity.meta.to) {
+        entity.meta.to.forEach(t => {
+            model.to.push({
+                user: t.user,
+                deliveredOn: t.deliveredOn,
+                viewedOn: t.viewedOn,
+                processedOn: t.processedOn,
+                archivedOn: t.archivedOn
+            })
+        });
+    }
 
     if (entity.conversation) {
         model.conversation = entity.conversation._doc ? {
@@ -48,7 +68,16 @@ exports.toSummary = (entity) => {
         subject: entity.subject,
         date: entity.date,
         status: entity.status,
-        modes: entity.modes
+        modes: entity.modes,
+        attachments: (entity.attachments || []).map(a => {
+            return {
+                filename: a.filename,
+                mimeType: a.mimeType,
+                thumbnail: a.thumbnail,
+                description: a.description,
+                url: a.url
+            }
+        }),
     }
 
     if (entity.from) {
@@ -58,6 +87,24 @@ exports.toSummary = (entity) => {
     if (entity.organization) {
         model.organization = organizationMapper.toModel(entity.organization)
     }
+
+    if (entity.conversation) {
+        model.conversation = entity.conversation._doc ? {
+            id: entity.conversation.id
+        } : {
+                id: entity.conversation.toString()
+            }
+    }
+
+    model.to = entity.to.map(t => {
+        return {
+            user: userMapper.toSummary(t.user),
+            deliveredOn: t.deliveredOn,
+            viewedOn: t.viewedOn,
+            processedOn: t.processedOn,
+            archivedOn: t.archivedOn
+        }
+    })
 
     return model
 }

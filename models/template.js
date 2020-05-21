@@ -39,6 +39,8 @@ module.exports = {
         default: false
     },
 
+    thumbnail: String,
+
     logo: String, // logo of tenant or organization
     dp: String, // dispaly picture of user
     isHidden: Boolean, // For hidden operations
@@ -47,11 +49,7 @@ module.exports = {
         label: String, // 'view'
         type: { type: String }, // 'button' input methods
         operation: String, // 'httpGET,POST' 'intent',
-        data: { // to inject part
-            body: Object,
-            url: String,
-            headers: Object
-        },
+        data: Object,
         await: Boolean // to wait for response
     }]
 }
