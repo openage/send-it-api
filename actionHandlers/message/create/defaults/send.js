@@ -37,7 +37,7 @@ const isMobileValid = (mobile) => {
 }
 
 const isDeviceValid = (device) => {
-    if (device && device.id && device.status == 'active') {
+    if (device && device.id && device.status === 'active') {
         return true
     } else {
         return false

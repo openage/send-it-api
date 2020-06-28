@@ -65,7 +65,7 @@ exports.search = async (query, page, context) => {
         }
     }
     if (query.user) {
-        if (query.user == 'me' || query.user === 'my') {
+        if (query.user === 'me' || query.user === 'my') {
             if (where)
                 where.participants = {
                     $all: [context.user]

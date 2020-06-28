@@ -166,7 +166,7 @@ const getAttachment = async (item, context) => {
         }
     } else if (item.url) {
         return {
-            filename: item.filename,
+            filename: item.filename || item.name || item.fileName,
             mimeType: item.MimeType || item.MIMEtype || item.MIMEType || item.mimeType || item.type,
             thumbnail: item.thumbnail || item.data,
             description: item.description,
@@ -188,6 +188,17 @@ const getAttachment = async (item, context) => {
 exports.create = async (model, context) => {
 
     let log = context.logger.start('create')
+
+    let template
+    if (model.template) {
+        template = await templates.get(model.template, context)
+
+        if (!template) {
+            log.info(`template: ${model.template.code || model.template.id || model.template} does not exit`)
+            log.end()
+            return
+        }
+    }
 
     let options = model.options || {}
 
@@ -213,11 +224,6 @@ exports.create = async (model, context) => {
         }
     }
 
-    let template
-    if (model.template) {
-        template = await templates.get(model.template, context)
-    }
-
     if (template) {
         template.config = template.config || {}
         message.modes = model.modes || template.config.modes
@@ -229,7 +235,7 @@ exports.create = async (model, context) => {
         meta.logo = meta.logo || template.logo
         meta.category = meta.category || template.category
 
-        if (template.category != 'view') {
+        if (template.category !== 'view') {
             let doc = await documents.getDocByTemplate(model.data, template, context)
             message.subject = doc.name
             message.body = doc.content

@@ -182,12 +182,12 @@ exports.search = async (query, page, context) => {
         tenant: context.tenant
     }
 
-    if (query.level == 'organization') {
+    if (query.level === 'organization') {
         where.organization = context.organization
-    } else if (query.level == 'library') {
+    } else if (query.level === 'library') {
         where.organization = { $exists: true }
         where.isPublic = true
-    } else if (query.level == 'tenant') {
+    } else if (query.level === 'tenant') {
         where.organization = { $exists: false }
     } else {
         where = {

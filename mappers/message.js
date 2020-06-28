@@ -3,6 +3,15 @@
 const userMapper = require('./user')
 const organizationMapper = require('./organization')
 exports.toModel = (entity, context) => {
+    if (!entity) {
+        return
+    }
+    if (!entity._doc) {
+        return {
+            id: entity.toString()
+        }
+    }
+
     var model = {
         id: entity.id,
         subject: entity.subject,
@@ -62,6 +71,14 @@ exports.toModel = (entity, context) => {
 }
 
 exports.toSummary = (entity) => {
+    if (!entity) {
+        return
+    }
+    if (!entity._doc) {
+        return {
+            id: entity.toString()
+        }
+    }
     var model = {
         id: entity.id,
         body: entity.body,
